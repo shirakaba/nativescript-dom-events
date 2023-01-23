@@ -50,7 +50,7 @@ Observable.prototype.isViewBase = function () {
 
 Observable.prototype.addEventListener = function (
   eventNames: string,
-  callback: (data: EventData) => void,
+  callback: EventListenerOrEventListenerObject | ((data: EventData) => void),
   thisArg?: any,
   options?: AddEventListenerOptions | boolean
 ) {
@@ -89,7 +89,7 @@ Observable.prototype.addEventListener = function (
 
 Observable.prototype.on = function (
   eventNames: string,
-  callback: (data: EventData) => void,
+  callback: EventListenerOrEventListenerObject | ((data: EventData) => void),
   thisArg?: any,
   options?: AddEventListenerOptions | boolean
 ) {
@@ -107,7 +107,7 @@ Observable.prototype.off = function (
 
 Observable.prototype.removeEventListener = function (
   eventNames: string,
-  callback: (data: EventData) => void,
+  callback?: EventListenerOrEventListenerObject | ((data: EventData) => void),
   thisArg?: any,
   options?: EventListenerOptions | boolean
 ) {
@@ -147,7 +147,7 @@ Observable.prototype.removeEventListener = function (
 
 Observable.prototype.once = function (
   event: string,
-  callback: (data: EventData) => void,
+  callback: EventListenerOrEventListenerObject | ((data: EventData) => void),
   thisArg?: any,
   options?: (AddEventListenerOptions & { once: true }) | boolean
 ) {

@@ -247,9 +247,10 @@ export class DOMEvent implements Event {
         ? this.recycledEventPath.unshift.bind(this.recycledEventPath)
         : this.recycledEventPath.push.bind(this.recycledEventPath);
 
-    let nextResponder = (responder as ViewBase).parent;
+    let nextResponder = responder.parent;
     while (nextResponder) {
-      insert(nextResponder);
+      // Look, ViewBase *does* extend Observable
+      insert(nextResponder as unknown as Observable);
 
       // TODO: decide whether to walk up from Page to Frame, and whether
       // to then walk from Frame to Application or something.
