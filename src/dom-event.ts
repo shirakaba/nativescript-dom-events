@@ -1,9 +1,4 @@
-import type {
-  EventData,
-  ListenerEntry,
-  Observable,
-  ViewBase,
-} from '@nativescript/core';
+import type { EventData, ListenerEntry, Observable } from '@nativescript/core';
 
 // This file contains some of Core's hot paths, so attention has been taken to
 // optimise it. Where specified, optimisations made have been informed based on
@@ -17,7 +12,7 @@ const timeOrigin = Date.now();
  * optional accesses, so reusing the same one and treating it as immutable
  * avoids unnecessary allocations on a relatively hot path of the library.
  */
-const emptyArray: ListenerEntry[] = [];
+const emptyArray: readonly ListenerEntry[] = [];
 
 enum EventPropagationState {
   resume,
@@ -444,10 +439,12 @@ export class DOMEvent implements Event {
     getListeners: () => readonly ListenerEntry[],
     phase: 0 | 1 | 2 | 3,
     removeEventListener: (
-      eventName: string,
-      callback?: (data: EventData) => void,
-      thisArg?: any,
-      capture?: boolean
+      eventNames: string,
+      callback:
+        | EventListenerOrEventListenerObject
+        | null
+        | ((data: EventData) => void),
+      optionsOrThisArg?: EventListenerOptions | boolean | any
     ) => void,
     removeEventListenerContext: unknown
   ) {
@@ -496,6 +493,10 @@ export class DOMEvent implements Event {
       }
 
       const callback = listener.callback;
+      if (typeof callback !== 'function') {
+        return;
+      }
+
       const thisArg = listener.thisArg;
 
       if (listener.once) {
@@ -505,8 +506,9 @@ export class DOMEvent implements Event {
           removeEventListenerContext,
           this.type,
           callback,
-          thisArg,
-          capture
+          // Mirror the logic in addEventListener(). If thisArg is undefined,
+          // then passing the capture value should match the listener entry.
+          thisArg || !!listener.capture
         );
       }
 
@@ -535,10 +537,10 @@ export class DOMEvent implements Event {
       // We prefer Function.call() over Function.apply() as it avoids
       // having to allocate an array just to hold the args (saves 30
       // nanoseconds per dispatchTo() call).
-      const returnValue = callback.call(
-        thisArg || undefined,
+      const returnValue = (callback as (data: EventData) => void).call(
+        thisArg,
         data
-      ) as void | Promise<any>;
+      ) as void | Promise<void>;
 
       DOMEvent.unstable_currentEvent = null;
 
