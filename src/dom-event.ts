@@ -1,4 +1,9 @@
-import type { EventData, ListenerEntry, Observable } from '@nativescript/core';
+import type {
+  EventData,
+  ListenerEntry,
+  Observable,
+  ViewBase,
+} from '@nativescript/core';
 
 // This file contains some of Core's hot paths, so attention has been taken to
 // optimise it. Where specified, optimisations made have been informed based on
@@ -231,7 +236,7 @@ export class DOMEvent implements Event {
   ): Observable[] {
     this.recycledEventPath.splice(0, this.recycledEventPath.length, responder);
 
-    if (!responder.isViewBase()) {
+    if (!isViewBase(responder)) {
       return this.recycledEventPath;
     }
 
@@ -580,4 +585,15 @@ export class DOMEvent implements Event {
     this.eventPhase = DOMEvent.NONE;
     this.propagationState = EventPropagationState.resume;
   }
+}
+
+function isViewBase(observable: Observable): observable is ViewBase {
+  return !!observable._isViewBase;
+}
+
+/**
+ * Polyfills DOMEvent as the implementation for Event.
+ */
+export function polyfillEvent(globalThis: any): void {
+  globalThis.Event = DOMEvent;
 }

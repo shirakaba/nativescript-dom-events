@@ -1,9 +1,4 @@
-import {
-  EventData,
-  Observable,
-  ViewBase,
-  ListenerEntry,
-} from '@nativescript/core';
+import { EventData, Observable, ListenerEntry } from '@nativescript/core';
 import { NotifyData } from '@nativescript/core/data/observable';
 
 import { DOMEvent } from './dom-event';
@@ -44,10 +39,6 @@ declare module '@nativescript/core' {
       options?: EventListenerOptions | boolean
     ): void;
 
-    // After my patch:
-    // notify<T extends Optional<EventData, 'object'>>(data: T): void
-
-    // Currently
     notify(event: Event): boolean;
 
     // -------------------------------------------------------------------------
@@ -68,12 +59,6 @@ declare module '@nativescript/core' {
       createIfNeeded?: boolean
     ): Array<ListenerEntry>;
     readonly _observers: { [eventName: string]: ListenerEntry[] };
-
-    // -------------------------------------------------------------------------
-    // New APIs we'll add
-    // -------------------------------------------------------------------------
-
-    isViewBase(): this is ViewBase;
   }
 
   interface ListenerEntry extends AddEventListenerOptions {
@@ -84,143 +69,147 @@ declare module '@nativescript/core' {
 
 export const eventDelimiterPattern = /\s*,\s*/;
 
-Observable._indexOfListener = function (
-  list: Array<ListenerEntry>,
-  callback: EventListenerOrEventListenerObject | ((data: EventData) => void),
-  thisArg?: any,
-  capture?: boolean
-): number {
-  return list.findIndex(
-    (entry) =>
-      entry.callback === callback &&
-      (!thisArg || entry.thisArg === thisArg) &&
-      !!entry.capture === capture
-  );
-};
-
-function isEvent<T extends NotifyData>(data: T | Event): data is Event {
-  return !!(data as T).eventName;
-}
-
-Observable.prototype.notify = function <T extends NotifyData>(
-  data: T | Event
-): boolean {
-  if (!isEvent(data)) {
-    data.object = data.object || this;
-  }
-
-  // _globalEventHandlers is fileprivate, so we can't support global events with
-  // this patch. It sounds like they're not important, in any case.
-
-  const event = isEvent(data) ? data : new DOMEvent(data.eventName);
-
-  return this.dispatchEvent(event);
-};
-
-Observable.prototype.dispatchEvent = function (event: DOMEvent): boolean {
-  const data = {
-    eventName: event.type,
-    object: this,
-    detail: event.detail,
+/**
+ * Patches Observable to implement EventTarget.
+ */
+export function patchObservable(): void {
+  Observable._indexOfListener = function (
+    list: Array<ListenerEntry>,
+    callback: EventListenerOrEventListenerObject | ((data: EventData) => void),
+    thisArg?: any,
+    capture?: boolean
+  ): number {
+    return list.findIndex(
+      (entry) =>
+        entry.callback === callback &&
+        (!thisArg || entry.thisArg === thisArg) &&
+        !!entry.capture === capture
+    );
   };
 
-  return event.dispatchTo(this, data);
-};
+  Observable.prototype.notify = function <T extends NotifyData>(
+    data: T | Event
+  ): boolean {
+    if (!isEvent(data)) {
+      data.object = data.object || this;
+    }
 
-Observable.prototype.isViewBase = function () {
-  return this._isViewBase;
-};
+    // We can't support global events with this patch, as _globalEventHandlers
+    // is fileprivate. It sounds like they're not important, in any case.
 
-Observable.prototype.addEventListener = function (
-  eventNames: string,
-  callback:
-    | EventListenerOrEventListenerObject
-    | null
-    | ((data: EventData) => void),
-  optionsOrThisArg?: AddEventListenerOptions | boolean | any
-) {
-  if (typeof eventNames !== 'string') {
-    throw new TypeError('Events name(s) must be string.');
-  }
+    const event = isEvent(data) ? data : new DOMEvent(data.eventName);
 
-  if (typeof callback !== 'function') {
-    throw new TypeError('Callback must be function.');
-  }
+    return this.dispatchEvent(event);
+  };
 
-  const events = eventNames.trim().split(eventDelimiterPattern);
-  for (let i = 0, l = events.length; i < l; i++) {
-    const event = events[i];
-    const list = this._getEventList(event, true);
+  Observable.prototype.dispatchEvent = function (event: DOMEvent): boolean {
+    const data = {
+      eventName: event.type,
+      object: this,
+      detail: event.detail,
+    };
 
-    const treatAsEventOptions = isProbablyEventOptions(optionsOrThisArg);
+    return event.dispatchTo(this, data);
+  };
 
-    if (
-      Observable._indexOfListener(
+  Observable.prototype.addEventListener = function (
+    eventNames: string,
+    callback:
+      | EventListenerOrEventListenerObject
+      | null
+      | ((data: EventData) => void),
+    optionsOrThisArg?: AddEventListenerOptions | boolean | any
+  ) {
+    if (typeof eventNames !== 'string') {
+      throw new TypeError('Events name(s) must be string.');
+    }
+
+    if (typeof callback !== 'function') {
+      throw new TypeError('Callback must be function.');
+    }
+
+    const events = eventNames.trim().split(eventDelimiterPattern);
+    for (let i = 0, l = events.length; i < l; i++) {
+      const event = events[i];
+      const list = this._getEventList(event, true);
+
+      const treatAsEventOptions = isProbablyEventOptions(optionsOrThisArg);
+
+      if (
+        Observable._indexOfListener(
+          list,
+          callback,
+          treatAsEventOptions ? undefined : optionsOrThisArg,
+          usesCapture(optionsOrThisArg)
+        ) >= 0
+      ) {
+        // Don't allow addition of duplicate event listeners.
+        continue;
+      }
+
+      list.push({
+        callback,
+        thisArg: treatAsEventOptions ? undefined : optionsOrThisArg,
+        // TODO: can optimise by setting properties directly rather than
+        // creating this temporary object just to immediately spread it.
+        ...normalizeEventOptions(optionsOrThisArg),
+      });
+    }
+  };
+
+  Observable.prototype.on = Observable.prototype.addEventListener;
+
+  Observable.prototype.removeEventListener = function (
+    eventNames: string,
+    callback?:
+      | EventListenerOrEventListenerObject
+      | null
+      | ((data: EventData) => void),
+    optionsOrThisArg?: EventListenerOptions | boolean
+  ) {
+    if (typeof eventNames !== 'string') {
+      throw new TypeError('Events name(s) must be string.');
+    }
+
+    if (callback && typeof callback !== 'function') {
+      throw new TypeError('Callback, if provided, must be function.');
+    }
+
+    for (const event of eventNames.trim().split(eventDelimiterPattern)) {
+      if (!callback) {
+        delete this._observers[event];
+        continue;
+      }
+
+      const list = this._getEventList(event, false);
+      if (!list) {
+        continue;
+      }
+
+      const index = Observable._indexOfListener(
         list,
         callback,
-        treatAsEventOptions ? undefined : optionsOrThisArg,
+        isProbablyEventOptions(optionsOrThisArg) ? undefined : optionsOrThisArg,
         usesCapture(optionsOrThisArg)
-      ) >= 0
-    ) {
-      // Don't allow addition of duplicate event listeners.
-      continue;
+      );
+      if (index >= 0) {
+        list.splice(index, 1);
+      }
+      if (list.length === 0) {
+        delete this._observers[event];
+      }
     }
+  };
 
-    list.push({
-      callback,
-      thisArg: treatAsEventOptions ? undefined : optionsOrThisArg,
-      // TODO: can optimise by setting properties directly rather than creating
-      // this temporary object just to immediately spread it.
-      ...normalizeEventOptions(optionsOrThisArg),
-    });
-  }
-};
+  Observable.prototype.off = Observable.prototype.removeEventListener;
+}
 
-Observable.prototype.on = Observable.prototype.addEventListener;
-
-Observable.prototype.removeEventListener = function (
-  eventNames: string,
-  callback?:
-    | EventListenerOrEventListenerObject
-    | null
-    | ((data: EventData) => void),
-  optionsOrThisArg?: EventListenerOptions | boolean
-) {
-  if (typeof eventNames !== 'string') {
-    throw new TypeError('Events name(s) must be string.');
-  }
-
-  if (callback && typeof callback !== 'function') {
-    throw new TypeError('Callback, if provided, must be function.');
-  }
-
-  for (const event of eventNames.trim().split(eventDelimiterPattern)) {
-    if (!callback) {
-      delete this._observers[event];
-      continue;
-    }
-
-    const list = this._getEventList(event, false);
-    if (!list) {
-      continue;
-    }
-
-    const index = Observable._indexOfListener(
-      list,
-      callback,
-      isProbablyEventOptions(optionsOrThisArg) ? undefined : optionsOrThisArg,
-      usesCapture(optionsOrThisArg)
-    );
-    if (index >= 0) {
-      list.splice(index, 1);
-    }
-    if (list.length === 0) {
-      delete this._observers[event];
-    }
-  }
-};
-
-Observable.prototype.off = Observable.prototype.removeEventListener;
+/**
+ * Polyfills Observable as the implementation for EventTarget.
+ */
+export function polyfillEventTarget(globalThis: any): void {
+  globalThis.EventTarget = Observable;
+}
 
 /**
  * Determines what `capture` value we should assume from an `options` or
@@ -233,7 +222,7 @@ function usesCapture(
   optionsOrThisArg?: AddEventListenerOptions | boolean | any
 ): boolean {
   if (typeof optionsOrThisArg === 'object' && optionsOrThisArg !== null) {
-    // `thisArg` could theoretically be e.g. { capture: string; }, so we look
+    // `thisArg` could theoretically be e.g. { capture: string; }, so we check
     // strictly for boolean/undefined.
     if (
       typeof optionsOrThisArg.capture === 'boolean' ||
@@ -244,7 +233,7 @@ function usesCapture(
     return false;
   }
 
-  // `thisArg` could be e.g. a string, so again, we look for boolean/undefined.
+  // `thisArg` could be e.g. a string, so again, we check for boolean/undefined.
   if (
     typeof optionsOrThisArg === 'boolean' ||
     typeof optionsOrThisArg === 'undefined'
@@ -255,6 +244,10 @@ function usesCapture(
   return false;
 }
 
+/**
+ * Normalizes optionsOrThisArg into a AddEventListenerOptions where all fields
+ * are non-optional (`signal` is an explicit undefined).
+ */
 function normalizeEventOptions(
   optionsOrThisArg?: AddEventListenerOptions | boolean | any
 ): AddEventListenerOptions {
@@ -306,4 +299,8 @@ function isProbablyEventOptions(
     typeof optionsOrThisArg === 'undefined' ||
     (typeof optionsOrThisArg === 'object' && optionsOrThisArg !== null)
   );
+}
+
+function isEvent<T extends NotifyData>(data: T | Event): data is Event {
+  return !!(data as T).eventName;
 }
