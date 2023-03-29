@@ -36,7 +36,7 @@
   resolved "https://registry.yarnpkg.com/@humanwhocodes/object-schema/-/object-schema-1.2.1.tgz#b520529ec21d8e5945a1851dfd1c32e94e39ff45"
   integrity sha512-ZnQMnLV4e7hDlUvw8H+U8ASL02SS2Gn6+9Ac3wGGLIe7+je2AeAOxPY+izIPJDfFDb7eDjev0Us8MO1iFRN8hA==
 
-"@nativescript/core@^8.4.7":
+"@nativescript/core@8.4.7":
   version "8.4.7"
   resolved "https://registry.yarnpkg.com/@nativescript/core/-/core-8.4.7.tgz#8463950154edb33f476ad9f0f0177838b0711cbf"
   integrity sha512-F44w6v7TajGkZpSkq+vR2/pHrsQ9ByQRy/SXU1kNE8dZA5y6owOo2Dk0vcBD7Ab8sIqyedrI+eMYFtwN7jkB7A==

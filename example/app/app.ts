@@ -1,23 +1,30 @@
-import { Application, type StackLayout, type AbsoluteLayout } from '@nativescript/core';
-import type { TNSDOMElement } from 'nativescript-dom';
+import { runAllPatches } from 'nativescript-dom-events';
+import 'nativescript-dom-events/dist/observable';
 
-Application.run({ create: () => {
-    const stackLayoutWrapper = document.createElement('absolute-layout') as TNSDOMElement<StackLayout>;
-    const stackLayout = stackLayoutWrapper.nativeView;
-    stackLayout.backgroundColor = 'yellow';
-    stackLayout.style.height = { unit: '%', value: 100 };
-    stackLayout.style.width = { unit: '%', value: 100 };
+runAllPatches(global);
 
-    const absoluteLayoutWrapper = document.createElement('absolute-layout') as TNSDOMElement<AbsoluteLayout>;
-    const absoluteLayout = absoluteLayoutWrapper.nativeView;
-    absoluteLayout.backgroundColor = 'orange';
-    absoluteLayout.style.height = { unit: 'dip', value: 200 };
-    absoluteLayout.style.width = { unit: 'dip', value: 200 };
+import { Application, Observable, StackLayout } from '@nativescript/core';
 
-    stackLayoutWrapper.appendChild(absoluteLayoutWrapper);
+Application.run({
+  create: () => {
+    const observable = new Observable();
+
+    const stackLayout = new StackLayout();
+    observable.addEventListener(
+      'arbitrary',
+      (evt: Event) => console.log('arbitrary observable', evt),
+      { capture: true }
+    );
+    stackLayout.addEventListener(
+      'arbitrary',
+      (evt: Event) => console.log('arbitrary stackLayout', evt),
+      { capture: true }
+    );
+    observable.dispatchEvent(new Event('arbitrary'));
 
     return stackLayout;
-}});
+  },
+});
 
 /*
 Do not place any code after the application has been started as it will not

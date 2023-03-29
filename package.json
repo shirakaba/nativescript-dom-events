@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "DOM Events for NativeScript",
   "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "files": [
     "dist",
     "lib"
@@ -26,7 +27,7 @@
     "@nativescript/core": "*"
   },
   "devDependencies": {
-    "@nativescript/core": "^8.4.7",
+    "@nativescript/core": "8.4.7",
     "@types/set-value": "^4.0.1",
     "@typescript-eslint/eslint-plugin": "5.48.2",
     "@typescript-eslint/parser": "5.48.2",
