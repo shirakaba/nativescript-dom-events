@@ -1,5 +1,10 @@
-import { EventData, Observable, ListenerEntry } from '@nativescript/core';
-import { NotifyData } from '@nativescript/core/data/observable';
+import {
+  type EventData,
+  Observable,
+  type ListenerEntry,
+  GestureTypes,
+} from '@nativescript/core';
+import type { NotifyData } from '@nativescript/core/data/observable';
 
 import { DOMEvent } from './dom-event';
 
@@ -61,6 +66,43 @@ declare module '@nativescript/core' {
     readonly _observers: { [eventName: string]: ListenerEntry[] };
   }
 
+  // It seems we have to redeclare any subclass of Observable that redefines
+  // addEventListener(), because the lowest subclass seems to clobber any
+  // redeclarations made by superclasses - this is strange because I'd expect
+  // them just to be merged.
+  //
+  // Really it would make more sense to redeclare ViewCommon than View, but for
+  // unclear dark TypeScript reasons, redeclaring EventTarget APIs on ViewCommon
+  // has no effect.
+  abstract class View implements EventTarget {
+    addEventListener(
+      eventNames: string,
+      callback: EventListenerOrEventListenerObject | null,
+      options?: AddEventListenerOptions | boolean
+    ): void;
+    // It also seems I need to redeclare this overload (if I care about
+    // maintaining compatibility with non-DOM addEventListener) from ViewCommon
+    // as it is otherwise clobbered.
+    addEventListener(
+      arg: string | GestureTypes,
+      callback: (data: EventData) => void,
+      thisArg?: any
+    ): void;
+
+    removeEventListener(
+      eventNames: string,
+      callback: EventListenerOrEventListenerObject | null,
+      options?: EventListenerOptions | boolean
+    ): void;
+    // Redeclare the original overload.
+    removeEventListener(
+      arg: string | GestureTypes,
+      callback?: any,
+      thisArg?: any
+    ): void;
+    dispatchEvent(event: Event): boolean;
+  }
+
   interface ListenerEntry extends AddEventListenerOptions {
     callback: EventListenerOrEventListenerObject | ((data: EventData) => void);
     thisArg?: any;
@@ -90,14 +132,21 @@ export function patchObservable(): void {
   Observable.prototype.notify = function <T extends NotifyData>(
     data: T | Event
   ): boolean {
-    if (!isEvent(data)) {
+    if (isNotifyData(data)) {
       data.object = data.object || this;
     }
 
     // We can't support global events with this patch, as _globalEventHandlers
     // is fileprivate. It sounds like they're not important, in any case.
 
-    const event = isEvent(data) ? data : new DOMEvent(data.eventName);
+    const event = isNotifyData(data) ? new DOMEvent(data.eventName) : data;
+
+    console.log(
+      `Observable.notify (${isNotifyData(data)}) with event class name: ${
+        event.constructor.name
+      }`,
+      event
+    );
 
     return this.dispatchEvent(event);
   };
@@ -108,6 +157,11 @@ export function patchObservable(): void {
       object: this,
       detail: event.detail,
     };
+
+    console.log(
+      `Observable.dispatchTo with event class name: ${event.constructor.name}`,
+      event
+    );
 
     return event.dispatchTo(this, data);
   };
@@ -157,7 +211,21 @@ export function patchObservable(): void {
     }
   };
 
-  Observable.prototype.on = Observable.prototype.addEventListener;
+  Observable.prototype.on = function (
+    eventNames: string,
+    callback:
+      | EventListenerOrEventListenerObject
+      | null
+      | ((data: EventData) => void),
+    optionsOrThisArg?: AddEventListenerOptions | boolean | any
+  ) {
+    console.log('!! on', eventNames, callback, optionsOrThisArg);
+    this.addEventListener(
+      eventNames,
+      callback as (data: EventData) => void,
+      optionsOrThisArg
+    );
+  };
 
   Observable.prototype.removeEventListener = function (
     eventNames: string,
@@ -301,6 +369,6 @@ function isProbablyEventOptions(
   );
 }
 
-function isEvent<T extends NotifyData>(data: T | Event): data is Event {
+function isNotifyData<T extends NotifyData>(data: T | Event): data is T {
   return !!(data as T).eventName;
 }
