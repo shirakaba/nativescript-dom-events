@@ -1,9 +1,9 @@
 import { runAllPatches } from 'nativescript-dom-events';
-import 'nativescript-dom-events/dist/observable';
+import 'nativescript-dom-events/dist/event-target';
 
 runAllPatches(global);
 
-import { Application, Observable, StackLayout } from '@nativescript/core';
+import { Application, Observable, StackLayout, Page } from '@nativescript/core';
 
 Application.run({
   create: () => {
@@ -21,6 +21,15 @@ Application.run({
       { capture: true }
     );
     observable.dispatchEvent(new Event('arbitrary'));
+
+    const page = new Page();
+
+    page.addEventListener(
+      'arbitrary',
+      (evt: Event) => console.log('arbitrary page', evt),
+      { capture: true }
+    );
+    page.dispatchEvent(new Event('arbitrary'));
 
     return stackLayout;
   },

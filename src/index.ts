@@ -1,5 +1,5 @@
 import { polyfillEvent } from './dom-event';
-import { patchObservable, polyfillEventTarget } from './observable';
+import { patchObservable, polyfillEventTarget } from './event-target';
 
 /**
  * Patches Observable to implement EventTarget.
