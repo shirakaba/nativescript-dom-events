@@ -286,7 +286,7 @@ export function polyfillEventTarget(globalThis: any): void {
  * The DOM spec doesn't say how to handle non-boolean values in the third param
  * of addEventListener, so we'll return false in such cases.
  */
-function usesCapture(
+export function usesCapture(
   optionsOrThisArg?: AddEventListenerOptions | boolean | any
 ): boolean {
   if (typeof optionsOrThisArg === 'object' && optionsOrThisArg !== null) {
@@ -316,7 +316,7 @@ function usesCapture(
  * Normalizes optionsOrThisArg into a AddEventListenerOptions where all fields
  * are non-optional (`signal` is an explicit undefined).
  */
-function normalizeEventOptions(
+export function normalizeEventOptions(
   optionsOrThisArg?: AddEventListenerOptions | boolean | any
 ): AddEventListenerOptions {
   if (typeof optionsOrThisArg === 'object' && optionsOrThisArg !== null) {
@@ -359,7 +359,7 @@ function normalizeEventOptions(
  * treat as EventOptions when in doubt, so as not to re-bind the user's event
  * listener.
  */
-function isProbablyEventOptions(
+export function isProbablyEventOptions(
   optionsOrThisArg?: AddEventListenerOptions | boolean | any
 ): optionsOrThisArg is AddEventListenerOptions | boolean | undefined {
   return (

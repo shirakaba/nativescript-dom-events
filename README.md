@@ -17,6 +17,13 @@ For now this is a proof-of-concept as I want to demonstrate the approach, but I 
 
 # Known issues
 
+## Does not patch gestures on Android
+
+It's not possible from the outside. Changes needed:
+
+* `packages/core/ui/gestures/index.android.ts`:
+  * should expose `_executeCallback` (through )
+
 ## Asserting `observable as View` fails
 
 Asserting an Observable instance as any subclass below ViewBase will fail:
@@ -47,6 +54,10 @@ const page = args.object as unknown as Page;
 ```
 
 Once this library has proven itself, we may be able to get our EventTarget compatibility (type-only) patches merged directly into Core so that it doesn't need to be done with declaration merging, hopefully alleviating these uncooperative types.
+
+## Asserting `view as Observable` fails
+
+This is the same problem as above, but in the opposite direction (a downcast).
 
 ## Usage
 
